@@ -36,6 +36,36 @@ function decode(libjpegturbo, encodedImagePath, rawImagePath, iterations = 1) {
   decoder.delete();
 }
 
+function decodeCropped(libjpegturbo, encodedImagePath, rawImagePath, iterations = 1) {
+    encodedBitStream = fs.readFileSync(encodedImagePath);
+    const numBytes = 0;
+    encodedBitStream = encodedBitStream.slice(0, encodedBitStream.length - numBytes);
+    console.log('encodedBitStream.length=', encodedBitStream.length);
+    const decoder = new libjpegturbo.JPEGDecoder();
+    const encodedBuffer = decoder.getEncodedBuffer(encodedBitStream.length);
+    encodedBuffer.set(encodedBitStream);
+  
+    // do the actual benchmark
+    const beginDecode = process.hrtime();
+    for(var i=0; i < iterations; i++) {
+      decoder.decodeCropped(496, 496, 1000, 1000);
+    }
+    const decodeDuration = process.hrtime(beginDecode); // hrtime returns seconds/nanoseconds tuple
+    const decodeDurationInSeconds = (decodeDuration[0] + (decodeDuration[1] / 1000000000));
+    
+    // Print out information about the decode
+    console.log("Decode of " + encodedImagePath + " took " + ((decodeDurationInSeconds / iterations * 1000)) + " ms");
+    const frameInfo = decoder.getFrameInfo();
+    console.log('  frameInfo = ', frameInfo);
+    var decoded = decoder.getDecodedBuffer();
+    console.log('  decoded length = ', decoded.length);
+  
+    if(rawImagePath) {
+      fs.writeFileSync(rawImagePath, decoded);
+    }
+    decoder.delete();  
+}
+
 function encode(openjpeg, pathToUncompressedImageFrame, imageFrame, pathToJ2CFile, iterations = 1) {
     const uncompressedImageFrame = fs.readFileSync(pathToUncompressedImageFrame);
     console.log('uncompressedImageFrame.length:', uncompressedImageFrame.length)
@@ -71,6 +101,7 @@ function main(libjpegturbo) {
   //decode(libjpegturbo, '../../extern/libjpeg-turbo/testimages/testorig12.jpg', 1);
   //decode(libjpegturbo, '../fixtures/jpeg/lossless/CT1.jpll', '../fixtures/raw/CT1.raw', 1);
   decode(libjpegturbo, '../fixtures/jpeg/jpeg400jfif.jpg', '../fixtures/raw/jpeg400jfif.raw', 1);
+  decodeCropped(libjpegturbo, '../fixtures/jpeg/front0.jpg', '../fixtures/raw/front0.raw', 1);
 
   //decode('../fixtures/j2k/CT1-0decomp.j2k');
   //decode('../fixtures/j2k/NM1.j2k');

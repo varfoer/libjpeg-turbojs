@@ -112,6 +112,35 @@ class JPEGDecoder {
     tjDestroy(tjInstance);
   }
 
+  void decodeCropped(int x, int y, int w, int h) {
+    tjhandle tjInstance = NULL;
+    tjregion cr = {x, y, w, h};
+    if ((tjInstance = tj3Init(TJINIT_DECOMPRESS)) == NULL) {
+        throw("initializing decompressor\n");
+    }
+    
+    if(readHeader_i3(tjInstance)) {
+        tj3Destroy(tjInstance);
+        throw("error reading header\n");
+    }
+
+    int pixelFormat = (frameInfo_.componentCount == 1) ? TJPF_GRAY : TJPF_RGB;
+
+    const size_t destinationSize = cr.w * cr.h * tjPixelSize[pixelFormat];
+    decoded_.resize(destinationSize);
+
+    if (tj3SetCroppingRegion(tjInstance, cr) == -1) {
+        tj3Destroy(tjInstance);
+        throw("error setting crop region\n");
+    }
+
+    if (tj3Decompress8(tjInstance, encoded_.data(), encoded_.size(), decoded_.data(), cr.w * tjPixelSize[pixelFormat], pixelFormat) == -1) {
+        throw("error while decompressing\n");
+    }
+
+    tj3Destroy(tjInstance);
+  }
+
   /// <summary>
   /// returns the FrameInfo object for the decoded image.
   /// </summary>
@@ -127,6 +156,23 @@ class JPEGDecoder {
   }
 
   private:
+
+    int readHeader_i3(tjhandle tjInstance) {
+        int width, height, inSubsamp, inColorspace;
+        unsigned long jpegSize = (unsigned long)encoded_.size();
+
+        if (tj3DecompressHeader(tjInstance, encoded_.data(), jpegSize) < 0) {
+            return -1;
+        }
+
+        frameInfo_.width = tj3Get(tjInstance, TJPARAM_JPEGWIDTH);
+        frameInfo_.height = tj3Get(tjInstance, TJPARAM_JPEGHEIGHT);
+        frameInfo_.bitsPerSample = tj3Get(tjInstance, TJPARAM_PRECISION);
+        frameInfo_.isSigned = false;
+        frameInfo_.componentCount = tj3Get(tjInstance, TJPARAM_COLORSPACE) == TJCS_GRAY ? 1 : 3;
+
+        return 0;
+    }
 
     int readHeader_i(tjhandle tjInstance) {
         int width, height, inSubsamp, inColorspace;

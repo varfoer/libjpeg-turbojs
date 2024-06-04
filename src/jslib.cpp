@@ -24,6 +24,7 @@ EMSCRIPTEN_BINDINGS(JPEGDecoder) {
     .function("readHeader", &JPEGDecoder::readHeader)
     .function("decode", &JPEGDecoder::decode)
     .function("getFrameInfo", &JPEGDecoder::getFrameInfo)
+    .function("decodeCropped", &JPEGDecoder::decodeCropped)
    ;
 }
 

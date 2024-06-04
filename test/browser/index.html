@@ -19,7 +19,7 @@ SPDX-License-Identifier: MIT
       </p>
       <div class="row">
         <select id="imageSelector">
-          <option value="../../test/fixtures/j2k/CT1.j2k" selected>CT1</option>
+          <option value="../../test/fixtures/jpeg/front0.jpg" selected>front0</option>
           <option value="../../test/fixtures/j2k/CT2.j2k">CT2</option>
           <option value="../../test/fixtures/j2k/MG1.j2k">MG1</option>
           <option value="../../test/fixtures/j2k/MR1.j2k">MR1</option>
@@ -54,8 +54,9 @@ SPDX-License-Identifier: MIT
     </div>
   </div>
   <div class="row">
-      <div class="col-md-4">Encode Time: <span id="encodeTime"></span></div>
+      <!-- <div class="col-md-4">Encode Time: <span id="encodeTime"></span></div> -->
       <div class="col-md-4">Decode Time: <span id="decodeTime"></span></div>
+      <div class="col-md-4">Decode Time Cropped: <span id="decodeTimeCropped"></span></div>
       <div class="col-md-4">Display Time: <span id="displayTime"></span></div>
     </div>
     <div class="row">
@@ -78,6 +79,30 @@ SPDX-License-Identifier: MIT
       <div class="col-md-12">
         <b>Decoding Parameters</b>  
       </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <span>Crop x: </span><span id="crop_x">0</span>
+            <input type="range" class="custom-range" id="crop_x_range" step="8" min="0" max="1920" value="0">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <span>Crop y: </span><span id="crop_y">0</span>
+            <input type="range" class="custom-range" id="crop_y_range" step="8" min="0" max="1920" value="0">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <span>Crop width: </span><span id="crop_w">0</span>
+            <input type="range" class="custom-range" id="crop_w_range" min="0" max="1920" value="1920">
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <span>Crop height: </span><span id="crop_h">0</span>
+            <input type="range" class="custom-range" id="crop_h_range" min="0" max="1920" value="1920">
+        </div>
     </div>
     <div class="row">
       <div class="col-md-12">
@@ -165,17 +190,25 @@ SPDX-License-Identifier: MIT
   }
 
   function colorToCanvas(frameInfo, pixelData, imageData) {
-    let outOffset = 0;
+    const cropX = parseInt($('#crop_x_range').val());
+    const cropY = parseInt($('#crop_y_range').val());
+    let cropW = parseInt($('#crop_w_range').val());
+    let cropH = parseInt($('#crop_h_range').val());
+
+    if (cropX + cropW > 1920) cropW = 1920 - cropX;
+    if (cropY + cropH > 1920) cropH = 1920 - cropY;
+
+    let outOffset = cropX;
     const bytesPerSample = (frameInfo.bitsPerSample <= 8) ? 1 : 2;
-    let planeSize = frameInfo.width * frameInfo.height * bytesPerSample;
     let shift = 0;
     if(frameInfo.bitsPerSample > 8) {
       shift = 8;
     }
     let inOffset = 0;
    
-    for(var y=0; y < frameInfo.height; y++) {
-      for (var x = 0; x < frameInfo.width; x++) {
+    for(var y = 0; y < cropH; y++) {
+      for (var x = 0; x < cropW; x++) {
+        outOffset = (cropX + x + frameInfo.width * (y + cropY)) * 4;
         imageData.data[outOffset++] = pixelData[inOffset++] >> shift;
         imageData.data[outOffset++] = pixelData[inOffset++] >> shift;
         imageData.data[outOffset++] = pixelData[inOffset++] >> shift;
@@ -315,12 +348,27 @@ SPDX-License-Identifier: MIT
    
 
     // Decode
-    begin = performance.now(); // performance.now() returns value in milliseconds
+    // begin = performance.now(); // performance.now() returns value in milliseconds
+    // for(let i=0; i < iterations; i++) {
+    //   decoder.decode();
+    // }
+    // end = performance.now();
+    // $('#decodeTime').text(((end-begin) / iterations).toFixed(2) + ' ms');
+
+    const cropX = parseInt($('#crop_x_range').val());
+    const cropY = parseInt($('#crop_y_range').val());
+    let cropW = parseInt($('#crop_w_range').val());
+    let cropH = parseInt($('#crop_h_range').val());
+
+    if (cropX + cropW > 1920) cropW = 1920 - cropX;
+    if (cropY + cropH > 1920) cropH = 1920 - cropY;
+
+    begin = performance.now();
     for(let i=0; i < iterations; i++) {
-      decoder.decode();
+      decoder.decodeCropped(cropX, cropY, cropW, cropH);
     }
     end = performance.now();
-    $('#decodeTime').text(((end-begin) / iterations).toFixed(2) + ' ms');
+    $('#decodeTimeCropped').text(((end-begin) / iterations).toFixed(2) + ' ms');
 
     frameInfo = decoder.getFrameInfo();
 
@@ -356,7 +404,7 @@ SPDX-License-Identifier: MIT
       encoder.encode();
     }
     end = performance.now();
-    $('#encodeTime').text(((end-begin) / iterations).toFixed(2) + ' ms');
+    // $('#encodeTime').text(((end-begin) / iterations).toFixed(2) + ' ms');
   }
 
   function loadArrayBuffer(arrayBuffer) {
@@ -397,7 +445,7 @@ SPDX-License-Identifier: MIT
     ctx.fillRect(0,0,c.width, c.height);
     $('#status').text('OK');
 
-    $('#encodeTime').text('');
+    // $('#encodeTime').text('');
     $('#decodeTime').text('');
     $('#displayTime').text('');
 
@@ -424,7 +472,7 @@ SPDX-License-Identifier: MIT
   function main() {
 
     //init('../../test/fixtures/j2k/CT1-0decomp.j2k');
-    init('../../test/fixtures/jpeg/jpeg400jfif.jpg');
+    init('../../test/fixtures/jpeg/front0.jpg');
     //init('../../test/fixtures/j2k/US1.j2k');
     //init('../../test/fixtures/j2k/XA1.j2k');
     //init('../../test/fixtures/j2c/MG1.j2c');
@@ -497,6 +545,51 @@ SPDX-License-Identifier: MIT
         $('#status').text('OK - ' + iterations + ' iterations encode/decode');
       }, 1);
     });
+
+    $('#crop_x_range').on('input', function(e) {
+      const cropX = parseInt($(this).val());
+      $('#crop_x').text(`${cropX} pixels`);
+      try {
+        decode();
+      } catch(ex) {
+        console.log(ex);
+      } finally {
+      }
+    });
+
+    $('#crop_y_range').on('input', function(e) {
+      const cropY = parseInt($(this).val());
+      $('#crop_y').text(`${cropY} pixels`);
+      try {
+        decode();
+      } catch(ex) {
+        console.log(ex);
+      } finally {
+      }
+    });
+
+    $('#crop_w_range').on('input', function(e) {
+      const cropW = parseInt($(this).val());
+      $('#crop_w').text(`${cropW} pixels`);
+      try {
+        decode();
+      } catch(ex) {
+        console.log(ex);
+      } finally {
+      }
+    });
+
+    $('#crop_h_range').on('input', function(e) {
+      const cropH = parseInt($(this).val());
+      $('#crop_h').text(`${cropH} pixels`);
+      try {
+        decode();
+      } catch(ex) {
+        console.log(ex);
+      } finally {
+      }
+    });
+
 
     $('#encodedBytesReadRange').on('input', function(e) {
       numBytes = parseInt($(this).val());
